@@ -3,8 +3,13 @@ import pandas as pd
 import joblib
 import re
 from sklearn.base import BaseEstimator, TransformerMixin
+import paralleldots
+from paralleldots.config import get_api_key
+import requests
+import json
+from musixmatch import Musixmatch
 
-
+musixmatch = Musixmatch('4a3a70d22cfd1fd8cece7b3b4e5d1679')
 model_lo = joblib.load(open('model_lo.pkl', 'rb'))
 model_dt = joblib.load(open('model_dt.pkl', 'rb'))
 model_knn = joblib.load(open('model_knn.pkl', 'rb'))
@@ -104,11 +109,53 @@ def predicter(lyrics):
         return "Clean (Not Explicit)"
 
 
+def get_custom_classifier(text, category_list):
+    api_key = paralleldots.get_api_key()
+    if type(category_list) == list:
+        category_list = json.dumps(category_list)
+    response = requests.post(" https://apis.paralleldots.com/v4/custom_classifier", data={
+                             "api_key": api_key, "text": text, "category_list": category_list}).text
+    response = json.loads(response)
+    return response
+
+
+def context(lyrics):
+    keywords = ""
+    paralleldots.set_api_key("9isljmYvlsCHGsnGTbxHgXOOZIj0IZHeWcDxsdAnpDY")
+    paralleldots.get_api_key()
+    category_list = ["sexual", "homophobic", "sexist", "racist",
+                     "suicidal", "hate-speech", "violent", "substance-abuse"]
+    response = get_custom_classifier(lyrics, category_list)
+    for i in range(len(response['taxonomy'])):
+        if(response['taxonomy'][i]['confidence_score'] >= 0.7):
+            # print(response['taxonomy'][i]['tag'])
+            keywords = keywords+response['taxonomy'][i]['tag']+", "
+            print(keywords)
+    return keywords
+
+
 st.title("Explicit Lyrics Detector")
 st.write("Input your lyrics below to see if it is explicit or not")
 lyrics = st.text_input("Enter Song Lyrics: ")
 if st.button("Check for Explicit Lyrics"):
     st.write("The given song is ", predicter(lyrics))
+    with st.spinner('Analysing ...'):
+        if(context(lyrics)!=""):
+            st.write("The given song has phrases that might be considered", context(lyrics))
+    st.button("report for re-evaluation")
+    
+st.write("OR ")
+st.write("Input Song Name and Artist")
+sname=st.text_input("Enter Song Name: ")
+aname=st.text_input("Enter Artist Name: ")
+
+if st.button("Check"):
+    rucha= musixmatch.matcher_lyrics_get(sname, aname)
+    lyric_from_data=rucha['message']['body']['lyrics']['lyrics_body']
+    st.write("The given song is ", predicter(lyric_from_data))
+    with st.spinner('Analysing ...'):
+        if(context(lyric_from_data)!=""):
+            st.write("The given song has phrases that might be considered", context(lyric_from_data)) 
     st.button("report for re-evaluation")
 # text_file = open("D:/Work/ipd/ipd_streamLit/input.txt", "r")
 # lyrics = text_file.read()
