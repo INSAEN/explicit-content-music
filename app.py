@@ -79,8 +79,6 @@ class CustomFeats(BaseEstimator, TransformerMixin):
             [self.feat_names.add(k) for k in f]
             feats.append(f)
         return feats
-
-
 feats = joblib.load(open('feats.pkl', 'rb'))
 
 
